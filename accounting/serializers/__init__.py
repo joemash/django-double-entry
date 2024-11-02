@@ -20,11 +20,10 @@ class AccountEntrySerializer(serializers.ModelSerializer):
         )
 
     description = serializers.ReadOnlyField(source="accounting_transaction.description")
- 
+
     class Meta:
         model = AccountingEntry
         fields = "__all__"
-
 
 
 class AccountSerializer(serializers.ModelSerializer):
@@ -32,9 +31,7 @@ class AccountSerializer(serializers.ModelSerializer):
 
     account_name = serializers.ReadOnlyField()
     account_heading = serializers.ReadOnlyField(source="heading.heading")
-    account_heading_type = serializers.ReadOnlyField(
-        source="heading.heading_type"
-    )
+    account_heading_type = serializers.ReadOnlyField(source="heading.heading_type")
     number = serializers.CharField(required=False)
     balance = serializers.SerializerMethodField()
     entries = serializers.SerializerMethodField()

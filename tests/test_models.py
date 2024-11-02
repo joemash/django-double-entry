@@ -59,9 +59,8 @@ class TestAccountTransaction:
         )
         assert msg in e.value.messages[0]
 
-
     def test_ac_entry(self, currency):
-        """Test correct account double entry.""" 
+        """Test correct account double entry."""
         account = baker.make(Account, name="Bank")
         entry = baker.prepare(
             AccountingEntry,

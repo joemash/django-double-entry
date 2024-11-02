@@ -1,18 +1,26 @@
 from decimal import Decimal
+import uuid
 
+from django.apps import apps
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
-from accounting.models.common import ACCOUNT_TYPE, Base, Currency
+from accounting.models.common import (
+    ACCOUNT_TYPE,
+    DEFAULT_ACCOUNT_HEADINGS,
+    DEFAULT_ACCOUNTS,
+    Base,
+    Currency,
+)
 
 
 BALANCE_TYPES = (("dr", "DR"), ("cr", "CR"))
 
 
 class AccountHeading(Base):
-    """ 
+    """
     A classification system for accounts that defines their type and behavior.
     """
 
@@ -21,6 +29,7 @@ class AccountHeading(Base):
     balance_type = models.CharField(max_length=255, choices=BALANCE_TYPES)
     number = models.IntegerField()
     tracker = models.IntegerField(default=0)
+    system_id = models.UUIDField(default=uuid.uuid4, editable=False)
 
     def __str__(self):
         return self.heading
@@ -29,8 +38,9 @@ class AccountHeading(Base):
 class Account(Base):
     """_summary_
     Represents individual accounts in the accounting system.
-    Supports hierarchical structure with parent-child relationships. 
+    Supports hierarchical structure with parent-child relationships.
     """
+
     name = models.CharField(max_length=100)
     is_control_account = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
@@ -46,7 +56,8 @@ class Account(Base):
         related_name="children",
         db_index=True,
     )
-    
+    system_id = models.UUIDField(default=uuid.uuid4, editable=False)
+
     def __str__(self):
         return "{} - {}".format(self.number, self.name)
 
@@ -86,16 +97,8 @@ class Account(Base):
     def cr_total(self, end=None, extra_filters=None):
         """Calculate the total of credit entries for the period so far."""
         return self.period_total("cr_amount", end, extra_filters)
-    
-    def balance(self, extra_filters=None, dr_filters=None, cr_filters=None):
-        """Get the balance of an account."""
-        cr_total = self.cr_total(cr_filters)
-        dr_total = self.dr_total(dr_filters)
-        return dr_total - cr_total
 
-    def balance(
-        self, end=None, extra_filters=None, dr_filters=None, cr_filters=None
-    ):
+    def balance(self, end=None, extra_filters=None, dr_filters=None, cr_filters=None):
         """Get the balance of an account at a given date within a year."""
         if dr_filters:
             dr_filters.update(extra_filters)
@@ -129,6 +132,7 @@ class AccountingTransaction(Base):
     """
     Represents a complete double-entry transaction with balanced debit and credit entries.
     """
+
     def __init__(self, *args, **kwargs):
         """Initialize a transaction with a debit and credit entry."""
         self.dr_entry = kwargs.pop("dr_entry", None)
@@ -137,7 +141,7 @@ class AccountingTransaction(Base):
         super().__init__(*args, **kwargs)
 
     description = models.TextField()
- 
+
     dr_entry = None
     cr_entry = None
 
@@ -174,7 +178,7 @@ class AccountingTransaction(Base):
     @transaction.atomic
     def save(self, *args, **kwargs):
         """Save a transaction AND it's accompanying entries."""
-        self.full_clean() # Ensure validation is checked before saving
+        self.full_clean()  # Ensure validation is checked before saving
         super().save(*args, **kwargs)
         self.dr_entry.transaction = self
         self.cr_entry.transaction = self
@@ -187,6 +191,7 @@ class AccountingEntry(Base):
     """_summary_
     Individual ledger entries that make up transactions.
     """
+
     account = models.ForeignKey(
         Account,
         related_name="account_entries",
@@ -200,18 +205,16 @@ class AccountingEntry(Base):
         on_delete=models.PROTECT,
     )
     dr_amount = models.DecimalField(max_digits=16, decimal_places=4, default=0)
-    cr_amount = models.DecimalField(max_digits=16, decimal_places=4, default=0) 
+    cr_amount = models.DecimalField(max_digits=16, decimal_places=4, default=0)
     entry_date = models.DateTimeField(null=True, blank=True, default=timezone.now)
     currency = models.ForeignKey(
-        Currency,
-        related_name="currency",
-        on_delete=models.deletion.PROTECT
+        Currency, related_name="currency", on_delete=models.deletion.PROTECT
     )
     description = models.CharField(max_length=50, null=True, blank=True)
 
     def __str__(self):
         return f"{self.account.name} {self.currency.name} {self.amount}"
- 
+
     def validate_amount(self):
         """Ensure that an account entry is either a debit or credit amount."""
         if self.dr_amount and self.cr_amount:
@@ -244,3 +247,80 @@ class AccountingEntry(Base):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class OrganizationAccountSetup:
+    def __init__(self, organisation, heading_model=None, account_model=None):
+        self.organisation = organisation
+
+        # Allow client to override models or use defaults
+        self.heading_model = heading_model or apps.get_model("accounts.AccountHeading")
+        self.account_model = account_model or apps.get_model("accounts.Account")
+
+        self.heading_mapping = {}  # To store system_id -> AccountHeading mapping
+
+        # Get additional headings and accounts from settings
+        self.all_headings = list(DEFAULT_ACCOUNT_HEADINGS)
+        self.all_accounts = list(DEFAULT_ACCOUNTS)
+
+        if hasattr(settings, "OTHER_DEFAULT_ACCOUNT_HEADINGS"):
+            self.all_headings.extend(settings.OTHER_DEFAULT_ACCOUNT_HEADINGS)
+
+        if hasattr(settings, "OTHER_DEFAULT_ACCOUNTS"):
+            self.all_accounts.extend(settings.OTHER_DEFAULT_ACCOUNTS)
+
+    def create_headings(self):
+        """Create account headings and store their references"""
+        for heading_data in self.all_headings:
+            heading_data = (
+                heading_data.copy()
+            )  # Create a copy to avoid modifying original
+            system_id = heading_data.pop(
+                "system_id"
+            )  # Remove system_id before creation
+
+            # Check if heading with this system_id already exists
+            existing_heading = self.heading_model.objects.filter(
+                organisation=self.organisation, number=heading_data["number"]
+            ).first()
+
+            if existing_heading:
+                self.heading_mapping[system_id] = existing_heading
+                continue
+
+            heading_data["organisation"] = self.organisation
+            heading = self.heading_model.objects.create(**heading_data)
+            self.heading_mapping[system_id] = heading
+
+        return self.heading_mapping
+
+    def create_accounts(self):
+        """Create accounts using the heading references"""
+        for account_data in self.all_accounts:
+            account_data = (
+                account_data.copy()
+            )  # Create a copy to avoid modifying original
+            heading_ref = account_data.pop("heading")
+            heading_system_id = heading_ref["system_id"]
+
+            # Skip if heading reference doesn't exist
+            if heading_system_id not in self.heading_mapping:
+                continue
+
+            # Check if account already exists
+            if "system_id" in account_data:
+                existing_account = self.account_model.objects.filter(
+                    organisation=self.organisation, name=account_data["name"]
+                ).first()
+
+                if existing_account:
+                    continue
+
+            # Get the actual heading instance from our mapping
+            heading_instance = self.heading_mapping[heading_system_id]
+
+            account_data.update(
+                {"organisation": self.organisation, "heading": heading_instance}
+            )
+
+            self.account_model.objects.create(**account_data)
