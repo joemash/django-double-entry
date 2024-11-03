@@ -69,7 +69,7 @@ class Account(Base):
     def period_records(self, end, extra_filters=None):
         """Get period accounting entries."""
         new_end = end or timezone.now()
-        filters = {"created__lte": new_end}
+        filters = {"entry_date__lte": new_end}
         if extra_filters:
             assert isinstance(
                 extra_filters, dict
@@ -209,9 +209,9 @@ class AccountingEntry(Base):
     cr_amount = models.DecimalField(max_digits=16, decimal_places=4, default=0)
     entry_date = models.DateTimeField(null=True, blank=True, default=timezone.now)
     currency = models.ForeignKey(
-        Currency, related_name="currency", on_delete=models.deletion.PROTECT
+        Currency, related_name="currency_entry_related", on_delete=models.deletion.PROTECT
     )
-    description = models.CharField(max_length=50, null=True, blank=True)
+    description = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f"{self.account.name} {self.currency.name} {self.amount}"

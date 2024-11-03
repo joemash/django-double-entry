@@ -14,7 +14,7 @@ class AccountEntrySerializer(serializers.ModelSerializer):
         # since entries from the same document will have
         # same occurrence time; we therefore the need to filter
         # account entries upto this record using `created_by`
-        extra_filters = {"created__lte": instance.created}
+        extra_filters = {"entry_date__lte": instance.created}
         return instance.account.balance(
             end=instance.effective_date, extra_filters=extra_filters
         )

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-double-entry"
-version = "1.0.4"
+version = "1.0.9"
 description = "This manages accounting related functionality"
 authors = [
     {name = "Josephat Macharia", email = "josemash4@gmail.com"},
