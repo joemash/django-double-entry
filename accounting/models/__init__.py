@@ -57,6 +57,7 @@ class Account(Base):
         db_index=True,
     )
     system_id = models.UUIDField(default=uuid.uuid4, editable=False)
+    tag = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return "{} - {}".format(self.number, self.name)

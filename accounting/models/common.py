@@ -93,24 +93,36 @@ DEFAULT_ACCOUNT_HEADINGS = [
     },
 ]
 
+CASH_BANK_ACCOUNT_ID = "b39c5ec9-0140-49f0-b081-ceb76faccba8"
+ACCOUNTS_PAYABLE_CONTROL_ID = "2d8051b3-075d-4726-9ac8-20d5cb783b82"
+ACCOUNTS_RECEIVABLE_CONTROL_ID = "b7c33157-3a65-41e6-a08c-565b672a5baf"
+CUSTOMER_DEPOSITS_ACCOUNT_ID = "f608f060-995f-46fc-a7ab-c213b4ed527e"
 
 DEFAULT_ACCOUNTS = [
     {
         "name": "Account Receivables Control",
         "is_control_account": True,
-        "system_id": "b7c33157-3a65-41e6-a08c-565b672a5baf",
+        "system_id": ACCOUNTS_RECEIVABLE_CONTROL_ID,
         "heading": {"system_id": "1a6688b1-e6b8-407b-bcb4-2103400167b0"},
     },
     {
         "name": "Account Payables Control",
         "is_control_account": True,
-        "system_id": "2d8051b3-075d-4726-9ac8-20d5cb783b82",
+        "system_id": ACCOUNTS_PAYABLE_CONTROL_ID,
         "heading": {"system_id": "bf6dd49b-6759-48a4-88c8-198dec898a21"},
     },
     {
         "name": "Cash/Bank",
         "is_control_account": False,
-        "system_id": "b39c5ec9-0140-49f0-b081-ceb76faccba8",
+        "system_id": CASH_BANK_ACCOUNT_ID,
         "heading": {"system_id": "1a6688b1-e6b8-407b-bcb4-2103400167b0"},
+    },
+    {
+        "name": "Customer Deposits",
+        "is_control_account": False,
+        "system_id": CUSTOMER_DEPOSITS_ACCOUNT_ID,
+        "heading": {
+            "system_id": "bf6dd49b-6759-48a4-88c8-198dec898a21"
+        },
     },
 ]

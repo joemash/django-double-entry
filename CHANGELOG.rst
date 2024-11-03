@@ -23,3 +23,12 @@ Features:
 Features:
 
 - add OrganizationAccountSetup
+
+
+1.0.4 [03-11-2024]
+--------------------
+
+Features:
+
+- add account ids
+
